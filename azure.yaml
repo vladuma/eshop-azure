@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/wbreza/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+name: eShopOnWeb
+services:
+  web:
+    project: ./src/Web
+    language: csharp
+    host: appservice
+  # api:
+  #   project: ./src/PublicApi
+  #   language: csharp
+  #   host: appservice
