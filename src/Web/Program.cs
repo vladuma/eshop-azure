@@ -124,8 +124,9 @@ using (var scope = app.Services.CreateScope())
     var scopedProvider = scope.ServiceProvider;
     try
     {
-        var catalogContext = scopedProvider.GetRequiredService<CatalogContext>();
-        await CatalogContextSeed.SeedAsync(catalogContext, app.Logger);
+        //  TODO : ENABLE CTALOG DB
+        // var catalogContext = scopedProvider.GetRequiredService<CatalogContext>();
+        // await CatalogContextSeed.SeedAsync(catalogContext, app.Logger);
 
         var userManager = scopedProvider.GetRequiredService<UserManager<ApplicationUser>>();
         var roleManager = scopedProvider.GetRequiredService<RoleManager<IdentityRole>>();

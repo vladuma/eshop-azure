@@ -19,8 +19,9 @@ param secondaryLocation string
 // }
 param resourceGroupName string = ''
 param webServiceName string = ''
-param catalogDatabaseName string = 'catalogDatabase'
-param catalogDatabaseServerName string = ''
+param apiServiceName string = ''
+// param catalogDatabaseName string = 'catalogDatabase'
+// param catalogDatabaseServerName string = ''
 param identityDatabaseName string = 'identityDatabase'
 param identityDatabaseServerName string = ''
 param appServicePlanName string = ''
@@ -43,7 +44,7 @@ var tags = { 'azd-env-name': environmentName }
 
 // Organize resources in a resource group
 resource rg 'Microsoft.Resources/resourceGroups@2021-04-01' = {
-  name: !empty(resourceGroupName) ? resourceGroupName : '${abbrs.resourcesResourceGroups}${environmentName}'
+  name: !empty(resourceGroupName) ? resourceGroupName : '${abbrs.resourcesResourceGroups}${environmentName}-test'
   location: location
   tags: tags
 }
@@ -78,7 +79,7 @@ module secondaryWeb './core/host/appservice.bicep' = {
     keyVaultName: keyVault.outputs.name
     runtimeName: 'dotnetcore'
     runtimeVersion: '8.0'
-    tags: union(tags, { 'azd-service-name': 'web' })
+    tags: union(tags, { 'azd-service-name': 'secondaryWeb' })
     appSettings: {
       AZURE_SQL_CATALOG_CONNECTION_STRING_KEY: 'AZURE-SQL-CATALOG-CONNECTION-STRING'
       AZURE_SQL_IDENTITY_CONNECTION_STRING_KEY: 'AZURE-SQL-IDENTITY-CONNECTION-STRING'
@@ -87,30 +88,61 @@ module secondaryWeb './core/host/appservice.bicep' = {
   }
 }
 
+module api './core/host/apiservice.bicep' = {
+  name: 'api'
+  scope: rg
+  params: {
+    name: !empty(apiServiceName) ? '${apiServiceName}' : '${abbrs.webSitesAppService}api-${resourceToken}'
+    location: location
+    appServicePlanId: appServicePlan.outputs.id
+    keyVaultName: keyVault.outputs.name
+    runtimeName: 'dotnetcore'
+    runtimeVersion: '8.0'
+    tags: union(tags, { 'azd-service-name': 'api' })
+  }
+}
+
+module trafficManagerProfile './core/modules/trafficmanager.bicep' = {
+  name: 'trafficManagerProfile'
+  scope: rg
+  params: {
+    location: 'global'
+    tags: tags
+    profileName: '${abbrs.networkTrafficManagerProfiles}esow-profile-${resourceToken}'
+    endpoint1Name: web.outputs.name
+    endpoint1Priority: 1
+    endpoint2Name: secondaryWeb.outputs.name
+    endpoint2Priority: 2
+    location1: location
+    location2: secondaryLocation
+  }
+}
+
 module apiKeyVaultAccess './core/security/keyvault-access.bicep' = {
-  name: 'api-keyvault-access'
+  name: 'api-keyvault-access-eShop'
   scope: rg
   params: {
     keyVaultName: keyVault.outputs.name
     principalId: web.outputs.identityPrincipalId
+    secondaryPrincipalId: secondaryWeb.outputs.identityPrincipalId
   }
 }
 
 // The application database: Catalog
-module catalogDb './core/database/sqlserver/sqlserver.bicep' = {
-  name: 'sql-catalog'
-  scope: rg
-  params: {
-    name: !empty(catalogDatabaseServerName) ? catalogDatabaseServerName : '${abbrs.sqlServers}catalog-${resourceToken}'
-    databaseName: catalogDatabaseName
-    location: location
-    tags: tags
-    sqlAdminPassword: sqlAdminPassword
-    appUserPassword: appUserPassword
-    keyVaultName: keyVault.outputs.name
-    connectionStringKey: 'AZURE-SQL-CATALOG-CONNECTION-STRING'
-  }
-}
+// module catalogDb './core/database/sqlserver/sqlserver.bicep' = {
+//   name: 'sql-catalog'
+//   scope: rg
+//   params: {
+//     name: !empty(catalogDatabaseServerName) ? catalogDatabaseServerName : '${abbrs.sqlServers}catalog-${resourceToken}'
+//     databaseName: catalogDatabaseName
+//     location: location
+//     tags: tags
+//     sqlAdminPassword: sqlAdminPassword
+//     appUserPassword: appUserPassword
+//     keyVaultName: keyVault.outputs.name
+//     connectionStringKey: 'AZURE-SQL-CATALOG-CONNECTION-STRING'
+//   }
+// }
 
 // The application database: Identity
 module identityDb './core/database/sqlserver/sqlserver.bicep' = {
@@ -130,7 +162,7 @@ module identityDb './core/database/sqlserver/sqlserver.bicep' = {
 
 // Store secrets in a keyvault
 module keyVault './core/security/keyvault.bicep' = {
-  name: 'keyvault'
+  name: 'keyvault-eShop'
   scope: rg
   params: {
     name: !empty(keyVaultName) ? keyVaultName : '${abbrs.keyVaultVaults}${resourceToken}'
@@ -169,13 +201,14 @@ module secondaryAppServicePlan './core/host/secondaryappserviceplan.bicep' = {
 }
 
 // Data outputs
-output AZURE_SQL_CATALOG_CONNECTION_STRING_KEY string = catalogDb.outputs.connectionStringKey
+// output AZURE_SQL_CATALOG_CONNECTION_STRING_KEY string = catalogDb.outputs.connectionStringKey
 output AZURE_SQL_IDENTITY_CONNECTION_STRING_KEY string = identityDb.outputs.connectionStringKey
-output AZURE_SQL_CATALOG_DATABASE_NAME string = catalogDb.outputs.databaseName
+// output AZURE_SQL_CATALOG_DATABASE_NAME string = catalogDb.outputs.databaseName
 output AZURE_SQL_IDENTITY_DATABASE_NAME string = identityDb.outputs.databaseName
 
 // App outputs
 output AZURE_LOCATION string = location
+output AZURE_LOCATION_S string = secondaryLocation
 output AZURE_TENANT_ID string = tenant().tenantId
 output AZURE_KEY_VAULT_ENDPOINT string = keyVault.outputs.endpoint
 output AZURE_KEY_VAULT_NAME string = keyVault.outputs.name
