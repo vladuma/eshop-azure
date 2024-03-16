@@ -20,11 +20,12 @@ param secondaryLocation string
 param resourceGroupName string = ''
 param webServiceName string = ''
 param apiServiceName string = ''
-// param catalogDatabaseName string = 'catalogDatabase'
-// param catalogDatabaseServerName string = ''
+param catalogDatabaseName string = 'catalogDatabase'
+param catalogDatabaseServerName string = ''
 param identityDatabaseName string = 'identityDatabase'
 param identityDatabaseServerName string = ''
 param appServicePlanName string = ''
+param apiServicePlanName string = ''
 param keyVaultName string = ''
 
 @description('Id of the user or app to assign application roles')
@@ -94,11 +95,16 @@ module api './core/host/apiservice.bicep' = {
   params: {
     name: !empty(apiServiceName) ? '${apiServiceName}' : '${abbrs.webSitesAppService}api-${resourceToken}'
     location: location
-    appServicePlanId: appServicePlan.outputs.id
+    appServicePlanId: apiServicePlan.outputs.id
     keyVaultName: keyVault.outputs.name
     runtimeName: 'dotnetcore'
     runtimeVersion: '8.0'
     tags: union(tags, { 'azd-service-name': 'api' })
+    appSettings: {
+      AZURE_SQL_CATALOG_CONNECTION_STRING_KEY: 'AZURE-SQL-CATALOG-CONNECTION-STRING'
+      AZURE_SQL_IDENTITY_CONNECTION_STRING_KEY: 'AZURE-SQL-IDENTITY-CONNECTION-STRING'
+      AZURE_KEY_VAULT_ENDPOINT: keyVault.outputs.endpoint
+    }
   }
 }
 
@@ -129,20 +135,20 @@ module apiKeyVaultAccess './core/security/keyvault-access.bicep' = {
 }
 
 // The application database: Catalog
-// module catalogDb './core/database/sqlserver/sqlserver.bicep' = {
-//   name: 'sql-catalog'
-//   scope: rg
-//   params: {
-//     name: !empty(catalogDatabaseServerName) ? catalogDatabaseServerName : '${abbrs.sqlServers}catalog-${resourceToken}'
-//     databaseName: catalogDatabaseName
-//     location: location
-//     tags: tags
-//     sqlAdminPassword: sqlAdminPassword
-//     appUserPassword: appUserPassword
-//     keyVaultName: keyVault.outputs.name
-//     connectionStringKey: 'AZURE-SQL-CATALOG-CONNECTION-STRING'
-//   }
-// }
+module catalogDb './core/database/sqlserver/sqlserver.bicep' = {
+  name: 'sql-catalog'
+  scope: rg
+  params: {
+    name: !empty(catalogDatabaseServerName) ? catalogDatabaseServerName : '${abbrs.sqlServers}catalog-${resourceToken}'
+    databaseName: catalogDatabaseName
+    location: location
+    tags: tags
+    sqlAdminPassword: sqlAdminPassword
+    appUserPassword: appUserPassword
+    keyVaultName: keyVault.outputs.name
+    connectionStringKey: 'AZURE-SQL-CATALOG-CONNECTION-STRING'
+  }
+}
 
 // The application database: Identity
 module identityDb './core/database/sqlserver/sqlserver.bicep' = {
@@ -172,6 +178,20 @@ module keyVault './core/security/keyvault.bicep' = {
   }
 }
 
+// Create an API Service Plan to group applications under the same payment plan and SKU
+module apiServicePlan './core/host/appserviceplan.bicep' = {
+  name: 'apiserviceplan'
+  scope: rg
+  params: {
+    name: !empty(apiServicePlanName) ? apiServicePlanName : '${abbrs.webServerFarms}api-${resourceToken}'
+    location: location
+    tags: tags
+    sku: {
+      name: 'S1'
+    }
+  }
+}
+
 // Create an App Service Plan to group applications under the same payment plan and SKU
 module appServicePlan './core/host/appserviceplan.bicep' = {
   name: 'appserviceplan'
@@ -181,7 +201,7 @@ module appServicePlan './core/host/appserviceplan.bicep' = {
     location: location
     tags: tags
     sku: {
-      name: 'B1'
+      name: 'S1'
     }
   }
 }
@@ -195,15 +215,15 @@ module secondaryAppServicePlan './core/host/secondaryappserviceplan.bicep' = {
     location: secondaryLocation
     tags: tags
     sku: {
-      name: 'B1'
+      name: 'S1'
     }
   }
 }
 
 // Data outputs
-// output AZURE_SQL_CATALOG_CONNECTION_STRING_KEY string = catalogDb.outputs.connectionStringKey
+output AZURE_SQL_CATALOG_CONNECTION_STRING_KEY string = catalogDb.outputs.connectionStringKey
 output AZURE_SQL_IDENTITY_CONNECTION_STRING_KEY string = identityDb.outputs.connectionStringKey
-// output AZURE_SQL_CATALOG_DATABASE_NAME string = catalogDb.outputs.databaseName
+output AZURE_SQL_CATALOG_DATABASE_NAME string = catalogDb.outputs.databaseName
 output AZURE_SQL_IDENTITY_DATABASE_NAME string = identityDb.outputs.databaseName
 
 // App outputs
