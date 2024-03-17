@@ -129,6 +129,8 @@ var app = builder.Build();
 
 app.Logger.LogInformation("PublicApi App created...");
 
+throw new Exception ("Cannot move further");
+
 app.Logger.LogInformation("Seeding Database...");
 
 using (var scope = app.Services.CreateScope())
