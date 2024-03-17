@@ -122,6 +122,9 @@ builder.Services.AddSwaggerGen(c =>
             });
 });
 
+// The following line enables Application Insights telemetry collection.
+builder.Services.AddApplicationInsightsTelemetry();
+
 var app = builder.Build();
 
 app.Logger.LogInformation("PublicApi App created...");

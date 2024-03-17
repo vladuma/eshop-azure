@@ -3,7 +3,7 @@ param location string = resourceGroup().location
 param tags object = {}
 
 // Reference Properties
-param applicationInsightsName string = ''
+param applicationInsightsName string = 'api-application-insights'
 param appServicePlanId string
 param keyVaultName string = ''
 param managedIdentity bool = !empty(keyVaultName)
@@ -133,8 +133,13 @@ resource keyVault 'Microsoft.KeyVault/vaults@2022-07-01' existing = if (!(empty(
   name: keyVaultName
 }
 
-resource applicationInsights 'Microsoft.Insights/components@2020-02-02' existing = if (!empty(applicationInsightsName)) {
+resource applicationInsights 'Microsoft.Insights/components@2020-02-02' = {
   name: applicationInsightsName
+  location: location
+  kind: 'web'
+  properties: {
+    Application_Type: 'web'
+  }
 }
 
 // resource autoscaleSettings 'Microsoft.Insights/autoscalesettings@2015-04-01' = if (!empty(autoscaleRules)) {
