@@ -9,9 +9,9 @@ param environmentName string
 @description('Primary location for all resources')
 param location string
 
-@minLength(1)
-@description('Secondary location for all resources')
-param secondaryLocation string
+// @minLength(1)
+// @description('Secondary location for all resources')
+// param secondaryLocation string
 
 // Optional parameters to override the default azd resource naming conventions. Update the main.parameters.json file to provide values. e.g.,:
 // "resourceGroupName": {
@@ -66,28 +66,29 @@ module web './core/host/appservice.bicep' = {
       AZURE_SQL_CATALOG_CONNECTION_STRING_KEY: 'AZURE-SQL-CATALOG-CONNECTION-STRING'
       AZURE_SQL_IDENTITY_CONNECTION_STRING_KEY: 'AZURE-SQL-IDENTITY-CONNECTION-STRING'
       AZURE_KEY_VAULT_ENDPOINT: keyVault.outputs.endpoint
+      ORDER_ITEMS_RESERVER_FUNCTION_URL: orderItemsReserver.outputs.functionBaseUrl
     }
   }
 }
 
-module secondaryWeb './core/host/appservice.bicep' = {
-  name: 'secondaryWeb'
-  scope: rg
-  params: {
-    name: !empty(webServiceName) ? '${webServiceName}-secondary' : '${abbrs.webSitesAppService}web-secondary-${resourceToken}'
-    location: secondaryLocation
-    appServicePlanId: secondaryAppServicePlan.outputs.id
-    keyVaultName: keyVault.outputs.name
-    runtimeName: 'dotnetcore'
-    runtimeVersion: '8.0'
-    tags: union(tags, { 'azd-service-name': 'secondaryWeb' })
-    appSettings: {
-      AZURE_SQL_CATALOG_CONNECTION_STRING_KEY: 'AZURE-SQL-CATALOG-CONNECTION-STRING'
-      AZURE_SQL_IDENTITY_CONNECTION_STRING_KEY: 'AZURE-SQL-IDENTITY-CONNECTION-STRING'
-      AZURE_KEY_VAULT_ENDPOINT: keyVault.outputs.endpoint
-    }
-  }
-}
+// module secondaryWeb './core/host/appservice.bicep' = {
+//   name: 'secondaryWeb'
+//   scope: rg
+//   params: {
+//     name: !empty(webServiceName) ? '${webServiceName}-secondary' : '${abbrs.webSitesAppService}web-secondary-${resourceToken}'
+//     location: secondaryLocation
+//     appServicePlanId: secondaryAppServicePlan.outputs.id
+//     keyVaultName: keyVault.outputs.name
+//     runtimeName: 'dotnetcore'
+//     runtimeVersion: '8.0'
+//     tags: union(tags, { 'azd-service-name': 'secondaryWeb' })
+//     appSettings: {
+//       AZURE_SQL_CATALOG_CONNECTION_STRING_KEY: 'AZURE-SQL-CATALOG-CONNECTION-STRING'
+//       AZURE_SQL_IDENTITY_CONNECTION_STRING_KEY: 'AZURE-SQL-IDENTITY-CONNECTION-STRING'
+//       AZURE_KEY_VAULT_ENDPOINT: keyVault.outputs.endpoint
+//     }
+//   }
+// }
 
 module api './core/host/apiservice.bicep' = {
   name: 'api'
@@ -108,21 +109,21 @@ module api './core/host/apiservice.bicep' = {
   }
 }
 
-module trafficManagerProfile './core/modules/trafficmanager.bicep' = {
-  name: 'trafficManagerProfile'
-  scope: rg
-  params: {
-    location: 'global'
-    tags: tags
-    profileName: '${abbrs.networkTrafficManagerProfiles}esow-profile-${resourceToken}'
-    endpoint1Name: web.outputs.name
-    endpoint1Priority: 1
-    endpoint2Name: secondaryWeb.outputs.name
-    endpoint2Priority: 2
-    location1: location
-    location2: secondaryLocation
-  }
-}
+// module trafficManagerProfile './core/modules/trafficmanager.bicep' = {
+//   name: 'trafficManagerProfile'
+//   scope: rg
+//   params: {
+//     location: 'global'
+//     tags: tags
+//     profileName: '${abbrs.networkTrafficManagerProfiles}esow-profile-${resourceToken}'
+//     endpoint1Name: web.outputs.name
+//     endpoint1Priority: 1
+//     endpoint2Name: secondaryWeb.outputs.name
+//     endpoint2Priority: 2
+//     location1: location
+//     location2: secondaryLocation
+//   }
+// }
 
 module apiKeyVaultAccess './core/security/keyvault-access.bicep' = {
   name: 'api-keyvault-access-eShop'
@@ -130,7 +131,7 @@ module apiKeyVaultAccess './core/security/keyvault-access.bicep' = {
   params: {
     keyVaultName: keyVault.outputs.name
     principalId: web.outputs.identityPrincipalId
-    secondaryPrincipalId: secondaryWeb.outputs.identityPrincipalId
+    // secondaryPrincipalId: secondaryWeb.outputs.identityPrincipalId
   }
 }
 
@@ -187,7 +188,7 @@ module apiServicePlan './core/host/appserviceplan.bicep' = {
     location: location
     tags: tags
     sku: {
-      name: 'S1'
+      name: 'B1'
     }
   }
 }
@@ -201,22 +202,42 @@ module appServicePlan './core/host/appserviceplan.bicep' = {
     location: location
     tags: tags
     sku: {
-      name: 'S1'
+      name: 'B1'
     }
   }
 }
 
 // Create a secondary App Service Plan to group applications under the same payment plan and SKU
-module secondaryAppServicePlan './core/host/secondaryappserviceplan.bicep' = {
-  name: 'secondaryappserviceplan'
+// module secondaryAppServicePlan './core/host/secondaryappserviceplan.bicep' = {
+//   name: 'secondaryappserviceplan'
+//   scope: rg
+//   params: {
+//     name: !empty(appServicePlanName) ? '${appServicePlanName}-secondary' : '${abbrs.webServerFarms}${resourceToken}-secondary'
+//     location: secondaryLocation
+//     tags: tags
+//     sku: {
+//       name: 'B1'
+//     }
+//   }
+// }
+
+// module blobStorage './core/blobstorage/blobstorage.bicep' = {
+//   name: 'blobStorage'
+//   scope: rg
+//   params: {
+//     location: location
+//     resourceNamePrefix: 'OrderItemsStorage2603'
+//     tags: union(tags, { 'azd-service-name': 'storage' })
+//   }
+// }
+
+module orderItemsReserver './core/functions/functions.bicep' = {
+  name: 'OrderItemsReserver'
   scope: rg
   params: {
-    name: !empty(appServicePlanName) ? '${appServicePlanName}-secondary' : '${abbrs.webServerFarms}${resourceToken}-secondary'
-    location: secondaryLocation
-    tags: tags
-    sku: {
-      name: 'S1'
-    }
+    location: location
+    resourceNamePrefix: 'OrderItemsReserverFunction'
+    tags: union(tags, { 'azd-service-name': 'orderItemsReserver' })
   }
 }
 
@@ -228,7 +249,7 @@ output AZURE_SQL_IDENTITY_DATABASE_NAME string = identityDb.outputs.databaseName
 
 // App outputs
 output AZURE_LOCATION string = location
-output AZURE_LOCATION_S string = secondaryLocation
+// output AZURE_LOCATION_S string = secondaryLocation
 output AZURE_TENANT_ID string = tenant().tenantId
 output AZURE_KEY_VAULT_ENDPOINT string = keyVault.outputs.endpoint
 output AZURE_KEY_VAULT_NAME string = keyVault.outputs.name

@@ -3,7 +3,7 @@ param name string = 'add'
 param keyVaultName string
 param permissions object = { secrets: [ 'get', 'list' ] }
 param principalId string
-param secondaryPrincipalId string
+// param secondaryPrincipalId string
 
 resource keyVaultAccessPolicies 'Microsoft.KeyVault/vaults/accessPolicies@2022-07-01' = {
   parent: keyVault
@@ -15,11 +15,11 @@ resource keyVaultAccessPolicies 'Microsoft.KeyVault/vaults/accessPolicies@2022-0
         tenantId: subscription().tenantId
         permissions: permissions
       } 
-      {
-        objectId: secondaryPrincipalId
-        tenantId: subscription().tenantId
-        permissions: permissions
-      } 
+      // {
+      //   objectId: secondaryPrincipalId
+      //   tenantId: subscription().tenantId
+      //   permissions: permissions
+      // } 
     ]
   }
 }

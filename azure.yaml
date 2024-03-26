@@ -6,11 +6,15 @@ services:
     project: ./src/Web
     language: csharp
     host: appservice
-  secondaryWeb:
-    project: ./src/Web
-    language: csharp
-    host: appservice
+  # secondaryWeb:
+  #   project: ./src/Web
+  #   language: csharp
+  #   host: appservice
   api:
     project: ./src/PublicApi
     language: csharp
     host: appservice
+  orderItemsReserver:
+    project: ./src/OrderItemsReserver
+    language: csharp
+    host: function
